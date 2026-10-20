@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Article | Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Source+Sans+3:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="../assets/css/style.css?v=8" rel="stylesheet">
+    <script src="../assets/js/core.js"></script>
+    <script>
+        if (!Exultant.auth.isLoggedIn()) {
+            window.location.replace('login.html');
+        }
+    </script>
+</head>
+<body>
+<div class="admin-wrapper">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="adminSidebar">
+        <div class="sidebar-brand">
+            <h2>THE EXULTANT</h2>
+            <p>Admin Panel</p>
+        </div>
+        <ul class="sidebar-nav">
+            <li>
+                <a href="dashboard.html" class="DASHBOARD__">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </a>
+            </li>
+            <li>
+                <a href="articles.html" class="ARTICLES__">
+                    <i class="fas fa-newspaper"></i> Articles
+                </a>
+            </li>
+            <li>
+                <a href="add_article.html" class="ADD__">
+                    <i class="fas fa-plus-circle"></i> Add Article
+                </a>
+            </li>
+            <li>
+                <a href="categories.html" class="CATEGORIES__">
+                    <i class="fas fa-tags"></i> Categories
+                </a>
+            </li>
+            <li>
+                <a href="users.html" class="USERS__">
+                    <i class="fas fa-users"></i> Users
+                </a>
+            </li>
+            <li>
+                <a href="settings.html" class="SETTINGS__">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </li>
+            <li style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.5rem;">
+                <a href="../index.html" target="_blank">
+                    <i class="fas fa-globe"></i> View Site
+                </a>
+            </li>
+            <li>
+                <a href="login.html" data-logout>
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <div class="admin-topbar">
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-outline-secondary d-lg-none" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h4>Edit Article</h4>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-muted" style="font-size: 0.85rem;"><i class="fas fa-user-shield me-1"></i> <span id="topbarUsername"></span></span>
+                <a href="login.html" class="btn btn-sm btn-outline-danger" data-logout>
+                    <i class="fas fa-sign-out-alt me-1"></i> Logout
+                </a>
+            </div>
+        </div>
+        <div class="admin-body">
+            <div id="formAlerts"></div>
+
+            <div class="card shadow-sm admin-form-card">
+                <h5>Edit Article</h5>
+                <form method="POST" action="" enctype="multipart/form-data" id="articleForm">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Article Title *</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Category *</label>
+                            <select name="category_id" id="category_id" class="form-select" required>
+                                <option value="0">Select Category</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Author *</label>
+                            <select name="author_id" id="author_id" class="form-select" required>
+                                <option value="0">Select Author</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select name="status" id="status" class="form-select">
+                                <option value="draft">Draft</option>
+                                <option value="published">Published</option>
+                                <option value="archived">Archived</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Featured Image</label>
+                            <input type="file" name="image" id="articleImage" class="form-control" accept="image/*">
+                            <img id="imagePreview" src="#" alt="Image Preview" style="display: none; width: 200px; height: 150px; object-fit: cover; margin-top: 10px; border-radius: 4px;">
+                            <small class="text-muted d-block">Leave empty to keep the current image.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Video (optional)</label>
+                            <input type="file" name="video" id="articleVideo" class="form-control" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,video/mpeg,video/ogg,video/3gpp,video/x-ms-wmv,.mp4,.m4v,.webm,.mov,.avi,.mkv,.mpeg,.mpg,.ogg,.ogv,.3gp,.wmv">
+                            <div id="videoFileInfo" class="video-file-info mt-1" hidden></div>
+                            <div id="videoFileError" class="video-file-error mt-1" role="alert" hidden></div>
+                            <div id="videoUploadStatus" class="video-upload-status mt-2" role="status" aria-live="polite" hidden>
+                                <div class="video-upload-status-text">
+                                    <i class="fas fa-cloud-arrow-up me-1"></i>
+                                    <span id="videoUploadStatusText">Preparing upload...</span>
+                                </div>
+                                <progress id="videoUploadProgress" class="video-upload-progress" max="100" aria-label="Video upload in progress"></progress>
+                                <small class="text-muted d-block mt-1">Large videos can take several minutes. Keep this page open until the save finishes.</small>
+                            </div>
+                            <div id="currentVideoBlock"></div>
+                            <div class="video-player-wrap admin-video-block" id="videoPreviewWrap" hidden>
+                                <video id="videoPreview" class="video-element" controls playsinline preload="none"></video>
+                                <button type="button" class="video-mute-btn" data-video-target="videoPreview" aria-label="Toggle sound" title="Toggle sound">
+                                    <i class="fas fa-volume-up"></i>
+                                </button>
+                                <div class="video-error-msg" hidden>
+                                    <i class="fas fa-exclamation-triangle"></i> This video could not be played. The file may be corrupted or use an unsupported format.
+                                </div>
+                            </div>
+                            <small class="text-muted d-block">Optional. Formats: MP4, M4V, WebM, MOV, AVI, MKV, MPEG, OGG, 3GP, WMV. Maximum 2GB per video (server limit). Upload a new video to replace the current one.</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Article Content *</label>
+                            <textarea name="content" class="form-control auto-resize" rows="12" required></textarea>
+                            <small class="text-muted">Each new line will be displayed as a new paragraph.</small>
+                        </div>
+                        <div class="col-12 d-flex gap-2">
+                            <button type="submit" name="submit" value="save" class="btn btn-maroon"><i class="fas fa-save me-1"></i> Update Article</button>
+                            <a href="articles.html" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../assets/js/script.js"></script>
+<script src="../assets/js/admin-pages.js"></script>
+<script>
+    ExultantAdmin.renderEditArticle();
+</script>
+</body>
+</html>

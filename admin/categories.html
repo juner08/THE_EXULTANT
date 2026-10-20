@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Categories | Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Source+Sans+3:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="../assets/css/style.css?v=8" rel="stylesheet">
+    <script src="../assets/js/core.js"></script>
+    <script>
+        if (!Exultant.auth.isLoggedIn()) {
+            window.location.replace('login.html');
+        }
+    </script>
+</head>
+<body>
+<div class="admin-wrapper">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar" id="adminSidebar">
+        <div class="sidebar-brand">
+            <h2>THE EXULTANT</h2>
+            <p>Admin Panel</p>
+        </div>
+        <ul class="sidebar-nav">
+            <li>
+                <a href="dashboard.html" class="DASHBOARD__">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </a>
+            </li>
+            <li>
+                <a href="articles.html" class="ARTICLES__">
+                    <i class="fas fa-newspaper"></i> Articles
+                </a>
+            </li>
+            <li>
+                <a href="add_article.html" class="ADD__">
+                    <i class="fas fa-plus-circle"></i> Add Article
+                </a>
+            </li>
+            <li>
+                <a href="categories.html" class="CATEGORIES__">
+                    <i class="fas fa-tags"></i> Categories
+                </a>
+            </li>
+            <li>
+                <a href="users.html" class="USERS__">
+                    <i class="fas fa-users"></i> Users
+                </a>
+            </li>
+            <li>
+                <a href="settings.html" class="SETTINGS__">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </li>
+            <li style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.5rem;">
+                <a href="../index.html" target="_blank">
+                    <i class="fas fa-globe"></i> View Site
+                </a>
+            </li>
+            <li>
+                <a href="login.html" data-logout>
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <div class="admin-topbar">
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-outline-secondary d-lg-none" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h4>Manage Categories</h4>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-muted" style="font-size: 0.85rem;"><i class="fas fa-user-shield me-1"></i> <span id="topbarUsername"></span></span>
+                <a href="login.html" class="btn btn-sm btn-outline-danger" data-logout>
+                    <i class="fas fa-sign-out-alt me-1"></i> Logout
+                </a>
+            </div>
+        </div>
+        <div class="admin-body">
+            <div id="formAlerts"></div>
+
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <div class="card shadow-sm admin-form-card">
+                        <h5>Add New Category</h5>
+                        <form method="POST" action="" id="addCategoryForm">
+                            <div class="mb-3">
+                                <label class="form-label">Category Name *</label>
+                                <input type="text" name="category_name" class="form-control" placeholder="e.g. Campus Life" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea name="description" class="form-control" rows="3" placeholder="Brief description of this category"></textarea>
+                            </div>
+                            <button type="submit" name="add_category" class="btn btn-maroon"><i class="fas fa-plus me-1"></i> Add Category</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-lg-8">
+                    <div class="card shadow-sm" style="background: var(--white);">
+                        <div class="card-header" style="background: var(--white); border-bottom: 2px solid var(--maroon);">
+                            <h5 class="mb-0" style="font-family: var(--font-heading); color: var(--maroon);">Existing Categories</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive admin-table">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Category Name</th>
+                                            <th>Description</th>
+                                            <th>Articles</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="categoriesTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="categoryModals"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../assets/js/script.js"></script>
+<script src="../assets/js/admin-pages.js"></script>
+<script>
+    ExultantAdmin.renderCategoriesPage();
+</script>
+</body>
+</html>

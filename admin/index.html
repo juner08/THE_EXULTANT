@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin | The Exultant</title>
+    <script src="../assets/js/core.js"></script>
+    <script>
+        // Mirrors admin/index.php: redirect to dashboard or login
+        if (Exultant.auth.isLoggedIn()) {
+            window.location.replace('dashboard.html');
+        } else {
+            window.location.replace('login.html');
+        }
+    </script>
+</head>
+<body>
+</body>
+</html>
