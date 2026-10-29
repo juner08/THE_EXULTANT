@@ -38,13 +38,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ---------- Confirm Delete ----------
-    const deleteButtons = document.querySelectorAll('.btn-delete');
-    deleteButtons.forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
-                e.preventDefault();
-            }
-        });
+    // Delegated once so dynamically rendered delete buttons are covered and
+    // handlers are never stacked up by re-rendering a table.
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest ? e.target.closest('.btn-delete') : null;
+        if (!btn) return;
+        if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+            e.preventDefault();
+        }
     });
 
     // ---------- Image Preview on File Select ----------
@@ -207,9 +208,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // ---------- Smooth Scroll for Anchor Links ----------
     document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
         anchor.addEventListener('click', function(e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
+            const href = this.getAttribute('href');
+            // A bare "#" is used by placeholder links; do not pass it to
+            // querySelector (it throws) and do not jump the page.
+            if (!href || href === '#') {
+                e.preventDefault();
+                return;
+            }
+            let target = null;
+            try {
+                target = document.querySelector(href);
+            } catch (err) {
+                target = null;
+            }
             if (target) {
+                e.preventDefault();
                 target.scrollIntoView({
                     behavior: 'smooth',
                     block: 'start'

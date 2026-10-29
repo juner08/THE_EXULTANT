@@ -701,9 +701,16 @@ window.ExultantAdmin = (function () {
     }
 
     // ---------- Manage Categories (admin/categories.php) ----------
+    var categoriesPageBound = false;
+    var categoryActionLock = false;
+
     function renderCategoriesPage() {
         var deleteId = parseInt(E.qs('delete') || '0', 10);
         if (deleteId > 0) {
+            // Legacy GET fallback kept for old bookmarked links. The UI now
+            // performs this action through the guarded button handler below.
+            if (categoryActionLock) return;
+            categoryActionLock = true;
             if (E.db.categoryArticleCount(deleteId) > 0) {
                 flashAndGo('categories.html', 'Cannot delete category. It contains articles.', 'error');
             } else {
@@ -724,9 +731,10 @@ window.ExultantAdmin = (function () {
         for (var i = 0; i < categories.length; i++) {
             var cat = categories[i];
             var count = E.db.categoryArticleCount(cat.id);
+            var safeName = san(cat.category_name);
             html +=
-                '<tr>' +
-                    '<td><strong>' + san(cat.category_name) + '</strong></td>' +
+                '<tr data-category-row="' + cat.id + '">' +
+                    '<td><strong>' + safeName + '</strong></td>' +
                     '<td style="max-width: 250px; font-size: 0.85rem; color: var(--text-muted);">' +
                         (cat.description
                             ? san(String(cat.description).substring(0, 50)) + (String(cat.description).length > 50 ? '...' : '')
@@ -734,12 +742,12 @@ window.ExultantAdmin = (function () {
                     '</td>' +
                     '<td><span class="badge bg-maroon">' + count + '</span></td>' +
                     '<td>' +
-                        '<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal' + cat.id + '">' +
+                        '<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal' + cat.id + '" aria-label="Edit ' + safeName + '">' +
                             '<i class="fas fa-edit"></i>' +
                         '</button> ' +
-                        '<a href="categories.html?delete=' + cat.id + '" class="btn btn-sm btn-outline-danger btn-delete">' +
+                        '<button type="button" class="btn btn-sm btn-outline-danger" data-delete-category="' + cat.id + '" data-category-name="' + safeName + '" aria-label="Delete ' + safeName + '">' +
                             '<i class="fas fa-trash"></i>' +
-                        '</a>' +
+                        '</button>' +
                     '</td>' +
                 '</tr>';
             // Edit Modal (mirrors categories.php markup; kept outside the table because
@@ -757,7 +765,7 @@ window.ExultantAdmin = (function () {
                                     '<input type="hidden" name="category_id" value="' + cat.id + '">' +
                                     '<div class="mb-3">' +
                                         '<label class="form-label">Category Name</label>' +
-                                        '<input type="text" name="category_name" class="form-control" value="' + san(cat.category_name) + '" required>' +
+                                        '<input type="text" name="category_name" class="form-control" value="' + safeName + '" required>' +
                                     '</div>' +
                                     '<div class="mb-3">' +
                                         '<label class="form-label">Description</label>' +
@@ -778,47 +786,144 @@ window.ExultantAdmin = (function () {
         var modalBox = document.getElementById('categoryModals');
         if (modalBox) modalBox.innerHTML = modalsHtml;
 
+        bindCategoriesPageEvents();
+    }
+
+    // Bind one listener per stable container instead of one per rendered row
+    // or form. Re-rendering the table/modal markup can no longer stack handlers.
+    function bindCategoriesPageEvents() {
+        if (categoriesPageBound) return;
+        categoriesPageBound = true;
+
         var addForm = document.getElementById('addCategoryForm');
-        addForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var name = addForm.elements['category_name'].value.trim();
-            var description = addForm.elements['description'].value.trim();
+        if (addForm) addForm.addEventListener('submit', handleAddCategorySubmit);
 
-            if (name === '') {
-                showFormError('formAlerts', 'Category name is required.');
-                return;
-            }
-            if (findCategoryIgnoreCase(name) !== null) {
-                showFormError('formAlerts', 'A category with this name already exists.');
-                return;
-            }
+        var modalBox = document.getElementById('categoryModals');
+        if (modalBox) modalBox.addEventListener('submit', handleEditCategorySubmit);
 
-            E.db.insertCategory({ category_name: name, description: description });
-            flashAndGo('categories.html', 'Category added successfully!', 'success');
+        var tableBody = document.getElementById('categoriesTableBody');
+        if (tableBody) tableBody.addEventListener('click', handleCategoryTableClick);
+
+        window.addEventListener('pageshow', function () {
+            categoryActionLock = false;
+            resetCategoryForms();
         });
+    }
 
-        var editForms = document.querySelectorAll('form[data-edit-category]');
-        Array.prototype.forEach.call(editForms, function (editForm) {
-            editForm.addEventListener('submit', function (e) {
-                e.preventDefault();
-                var id = parseInt(editForm.elements['category_id'].value, 10) || 0;
-                var name = editForm.elements['category_name'].value.trim();
-                var description = editForm.elements['description'].value.trim();
+    function handleAddCategorySubmit(e) {
+        e.preventDefault();
+        var addForm = e.currentTarget;
+        if (!beginCategorySubmit(addForm)) return;
 
-                if (name === '') {
-                    showFormError('formAlerts', 'Category name is required.');
-                    return;
-                }
-                var existing = findCategoryIgnoreCase(name);
-                if (existing && existing.id !== id) {
-                    showFormError('formAlerts', 'A category with this name already exists.');
-                    return;
-                }
+        var name = addForm.elements['category_name'].value.trim();
+        var description = addForm.elements['description'].value.trim();
 
-                E.db.updateCategory(id, { category_name: name, description: description });
-                flashAndGo('categories.html', 'Category updated successfully!', 'success');
-            });
-        });
+        if (name === '') {
+            endCategorySubmit(addForm);
+            showFormError('formAlerts', 'Category name is required.');
+            return;
+        }
+        if (findCategoryIgnoreCase(name) !== null) {
+            endCategorySubmit(addForm);
+            showFormError('formAlerts', 'A category with this name already exists.');
+            return;
+        }
+
+        E.db.insertCategory({ category_name: name, description: description });
+        flashAndGo('categories.html', 'Category added successfully!', 'success');
+    }
+
+    function handleEditCategorySubmit(e) {
+        var editForm = e.target;
+        if (!editForm || !editForm.matches || !editForm.matches('form[data-edit-category]')) return;
+        e.preventDefault();
+        if (!beginCategorySubmit(editForm)) return;
+
+        var id = parseInt(editForm.elements['category_id'].value, 10) || 0;
+        var name = editForm.elements['category_name'].value.trim();
+        var description = editForm.elements['description'].value.trim();
+
+        if (name === '') {
+            endCategorySubmit(editForm);
+            showFormError('formAlerts', 'Category name is required.');
+            return;
+        }
+        var existing = findCategoryIgnoreCase(name);
+        if (existing && existing.id !== id) {
+            endCategorySubmit(editForm);
+            showFormError('formAlerts', 'A category with this name already exists.');
+            return;
+        }
+
+        E.db.updateCategory(id, { category_name: name, description: description });
+        flashAndGo('categories.html', 'Category updated successfully!', 'success');
+    }
+
+    function handleCategoryTableClick(e) {
+        var button = e.target && e.target.closest
+            ? e.target.closest('[data-delete-category]')
+            : null;
+        if (!button) return;
+
+        e.preventDefault();
+        if (categoryActionLock) return;
+
+        var id = parseInt(button.getAttribute('data-delete-category'), 10) || 0;
+        if (id <= 0) return;
+
+        var name = button.getAttribute('data-category-name') || 'this category';
+        if (!window.confirm('Are you sure you want to delete "' + name + '"? This action cannot be undone.')) {
+            return;
+        }
+
+        categoryActionLock = true;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+
+        if (E.db.categoryArticleCount(id) > 0) {
+            categoryActionLock = false;
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            flashAndGo('categories.html', 'Cannot delete category. It contains articles.', 'error');
+            return;
+        }
+
+        E.db.deleteCategory(id);
+        flashAndGo('categories.html', 'Category deleted successfully.', 'success');
+    }
+
+    function beginCategorySubmit(form) {
+        if (!form || form.getAttribute('data-submitting') === '1') return false;
+        form.setAttribute('data-submitting', '1');
+
+        var button = form.querySelector('button[type="submit"]');
+        if (button) {
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            button.setAttribute('data-original-html', button.innerHTML);
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Saving...';
+        }
+        return true;
+    }
+
+    function endCategorySubmit(form) {
+        if (!form) return;
+        form.removeAttribute('data-submitting');
+
+        var button = form.querySelector('button[type="submit"]');
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            if (button.hasAttribute('data-original-html')) {
+                button.innerHTML = button.getAttribute('data-original-html');
+                button.removeAttribute('data-original-html');
+            }
+        }
+    }
+
+    function resetCategoryForms() {
+        var forms = document.querySelectorAll('#addCategoryForm, #categoryModals form[data-edit-category]');
+        Array.prototype.forEach.call(forms, endCategorySubmit);
     }
 
     function findCategoryIgnoreCase(name) {

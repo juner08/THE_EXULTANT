@@ -24,7 +24,7 @@ A browser-based publication platform built with plain HTML, Bootstrap 5, and van
 **Public pages**
 
 - Home with featured story, latest news, and recent articles
-- Section pages: News, Sports, Opinion, Features, Literary, Entertainment
+- Section pages: News, Sports, Opinion, Features, Literary, Entertainment, Announcements
 - Article reader with image/video support, Archives, Search, and About pages
 
 **Admin panel** (`/admin`)
@@ -48,6 +48,7 @@ A browser-based publication platform built with plain HTML, Bootstrap 5, and van
 ├── features.html
 ├── literary.html
 ├── entertainment.html
+├── announcements.html    # Announcements section
 ├── archives.html         # Article archive
 ├── article.html          # Article reader
 ├── search.html           # Search

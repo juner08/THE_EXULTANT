@@ -26,21 +26,23 @@ window.ExultantPublic = (function () {
             dateCount.textContent = published.length + ' Articles Published';
         }
 
-        // Category cards (with the original inline hover handlers)
+        // Category cards. Hover styling lives in CSS so rapid clicks and
+        // back/forward navigation can never leave an inline hover state behind.
         var catHtml = '';
         for (var i = 0; i < categories.length; i++) {
             var cat = categories[i];
             var icon = E.CATEGORY_ICONS[cat.category_name] || 'fa-folder';
-            var link = E.categoryLink(cat.category_name);
+            var link = E.categoryLink(cat.category_name, cat.id);
             catHtml +=
                 '<div class="col-lg-3 col-md-4 col-6">' +
-                    '<a href="' + E.escapeHtml(link) + '" class="category-card d-block text-center p-3 rounded-3 text-decoration-none" style="background: var(--cream); transition: all 0.3s ease;" onmouseover="this.style.background=\'var(--maroon)\'; this.querySelector(\'i\').style.color=\'var(--gold)\'; this.querySelector(\'span\').style.color=\'#fff\';" onmouseout="this.style.background=\'var(--cream)\'; this.querySelector(\'i\').style.color=\'var(--maroon)\'; this.querySelector(\'span\').style.color=\'var(--text-primary)\';">' +
-                        '<i class="fas ' + icon + ' fa-2x mb-2" style="color: var(--maroon); display: block;"></i>' +
-                        '<span style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">' + E.sanitize(cat.category_name) + '</span>' +
+                    '<a href="' + E.escapeHtml(link) + '" class="category-card d-block text-center p-3 rounded-3 text-decoration-none" data-category-card data-category-id="' + cat.id + '">' +
+                        '<i class="fas ' + icon + ' fa-2x mb-2"></i>' +
+                        '<span>' + E.sanitize(cat.category_name) + '</span>' +
                     '</a>' +
                 '</div>';
         }
         setHtml('categoryCards', catHtml);
+        bindCategoryNavigation();
 
         // Featured story
         var featuredSection = document.getElementById('featuredSection');
@@ -111,7 +113,7 @@ window.ExultantPublic = (function () {
             for (var m = 0; m < categories.length; m++) {
                 var c = categories[m];
                 catListHtml +=
-                    '<a href="' + E.escapeHtml(E.categoryLink(c.category_name)) + '" class="d-flex justify-content-between align-items-center py-2 border-bottom" style="font-size:0.9rem; color: var(--text-secondary);">' +
+                    '<a href="' + E.escapeHtml(E.categoryLink(c.category_name, c.id)) + '" class="d-flex justify-content-between align-items-center py-2 border-bottom" data-category-link style="font-size:0.9rem; color: var(--text-secondary);">' +
                         '<span>' + E.sanitize(c.category_name) + '</span>' +
                         '<i class="fas fa-arrow-right" style="font-size:0.7rem; color: var(--maroon);"></i>' +
                     '</a>';
@@ -120,8 +122,85 @@ window.ExultantPublic = (function () {
         }
     }
 
+    // ---------- Category navigation guard ----------
+    var categoryNav = {
+        bound: false,
+        active: null
+    };
+
+    function clearCategoryNavigationState(link) {
+        if (!link) return;
+        link.removeAttribute('aria-busy');
+        link.classList.remove('is-navigating');
+    }
+
+    // One delegated listener handles every category link, including cards that
+    // are re-rendered later. This avoids attaching a new handler per card and
+    // stops a double-click from starting the same navigation twice.
+    function bindCategoryNavigation() {
+        if (categoryNav.bound) return;
+        categoryNav.bound = true;
+
+        document.addEventListener('click', function (e) {
+            // Keep native behaviour for middle-clicks, modified clicks and
+            // anything another handler has already cancelled.
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+                return;
+            }
+
+            var link = e.target && e.target.closest
+                ? e.target.closest('[data-category-card], [data-category-link]')
+                : null;
+            if (!link) return;
+
+            var href = link.getAttribute('href');
+            if (!href || href === '#') {
+                // A category without a destination should do nothing rather
+                // than throwing an "invalid selector" error.
+                e.preventDefault();
+                return;
+            }
+
+            if (link.getAttribute('aria-busy') === 'true') {
+                e.preventDefault();
+                return;
+            }
+
+            // The most recent category click is the one that should win.
+            if (categoryNav.active && categoryNav.active !== link) {
+                clearCategoryNavigationState(categoryNav.active);
+            }
+            categoryNav.active = link;
+            link.setAttribute('aria-busy', 'true');
+            link.classList.add('is-navigating');
+
+            // Recover if the browser blocks or cancels the navigation.
+            window.setTimeout(function () {
+                if (categoryNav.active === link) {
+                    clearCategoryNavigationState(link);
+                    categoryNav.active = null;
+                }
+            }, 15000);
+        }, false);
+
+        window.addEventListener('pageshow', function () {
+            if (categoryNav.active) clearCategoryNavigationState(categoryNav.active);
+            categoryNav.active = null;
+        });
+    }
+
     // ---------- Category pages (news.php, sports.php, ...) ----------
+    var categoryRenderSeq = 0;
+    var categoryPageConfig = null;
+    var categoryPageEventsBound = false;
+
     function renderCategoryPage(config) {
+        // Render tokens make repeated calls safe. If this ever becomes an
+        // asynchronous loader, an older response can never overwrite a newer
+        // category selection.
+        var renderSeq = ++categoryRenderSeq;
+        categoryPageConfig = config;
+
         E.initPublicPage();
 
         var perPage = 9;
@@ -129,15 +208,32 @@ window.ExultantPublic = (function () {
         var offset = (page - 1) * perPage;
 
         var cat = E.db.findCategoryByName(config.categoryName);
-        var categoryId = cat ? cat.id : 0;
+        if (!cat) {
+            if (renderSeq !== categoryRenderSeq) return;
+            var countMissing = document.getElementById('dateBarCount');
+            if (countMissing) countMissing.textContent = '0 Articles';
+            setHtml('categoryContent',
+                '<div class="no-results">' +
+                    '<i class="fas fa-exclamation-triangle"></i>' +
+                    '<h3>Category not found</h3>' +
+                    '<p>This category may have been renamed or removed.</p>' +
+                    '<a href="' + E.escapeHtml(E.BASE + 'archives.html') + '" class="btn btn-outline-maroon mt-2">Browse Archives</a>' +
+                '</div>');
+            bindCategoryPageEvents();
+            return;
+        }
 
         var all = E.db.publishedArticles().filter(function (a) {
-            return a.category_id === categoryId;
+            return a.category_id === cat.id;
         }).sort(E.byCreatedDesc);
 
         var total = all.length;
         var totalPages = Math.ceil(total / perPage);
         var articles = all.slice(offset, offset + perPage);
+
+        // Discard stale renders (e.g. a rapid repeat render triggered by
+        // browser back/forward cache restoration).
+        if (renderSeq !== categoryRenderSeq) return;
 
         var countEl = document.getElementById('dateBarCount');
         if (countEl) {
@@ -177,6 +273,20 @@ window.ExultantPublic = (function () {
                 '</div>';
         }
         setHtml('categoryContent', html);
+        bindCategoryPageEvents();
+    }
+
+    // Refresh section pages when they are restored from the back/forward cache
+    // so content always reflects the current category data.
+    function bindCategoryPageEvents() {
+        if (categoryPageEventsBound) return;
+        categoryPageEventsBound = true;
+
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted && categoryPageConfig) {
+                renderCategoryPage(categoryPageConfig);
+            }
+        });
     }
 
     // ---------- Article page (article.php) ----------
@@ -630,6 +740,40 @@ window.ExultantPublic = (function () {
         }
 
         setHtml('archivesContent', html);
+        bindArchiveFilterForm();
+    }
+
+    // One guarded submit handler stops rapid Filter clicks from firing the same
+    // category/year/search navigation more than once.
+    function bindArchiveFilterForm() {
+        var form = document.querySelector('.archive-filters form');
+        if (!form || form.getAttribute('data-filter-bound') === '1') return;
+        form.setAttribute('data-filter-bound', '1');
+
+        form.addEventListener('submit', function (e) {
+            if (form.getAttribute('data-submitting') === '1') {
+                e.preventDefault();
+                return;
+            }
+            form.setAttribute('data-submitting', '1');
+
+            var button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+                button.setAttribute('aria-busy', 'true');
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Filtering...';
+            }
+        });
+
+        window.addEventListener('pageshow', function () {
+            form.removeAttribute('data-submitting');
+            var button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = false;
+                button.removeAttribute('aria-busy');
+                button.innerHTML = 'Filter';
+            }
+        });
     }
 
     // ---------- About (about.php) ----------

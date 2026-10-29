@@ -773,11 +773,17 @@ window.Exultant = (function () {
         'Features': 'features.html',
         'Literary': 'literary.html',
         'Entertainment': 'entertainment.html',
-        'Announcements': 'news.html'
+        'Announcements': 'announcements.html'
     };
 
-    function categoryLink(name) {
-        return BASE + (CATEGORY_LINKS[name] || '#');
+    // Categories added from the admin panel do not have a dedicated section page.
+    // Send them to the archive filtered by their id instead of a dead "#" link.
+    function categoryLink(name, id) {
+        if (CATEGORY_LINKS[name]) {
+            return BASE + CATEGORY_LINKS[name];
+        }
+        var categoryId = parseInt(id, 10) || 0;
+        return BASE + 'archives.html' + (categoryId > 0 ? '?category=' + encodeURIComponent(categoryId) : '');
     }
 
     function currentFileName() {
